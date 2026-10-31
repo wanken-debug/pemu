@@ -2386,6 +2386,12 @@ static INT32 GameInpAutoOne(struct GameInp* pgi, char* szi, char *szn)
 		if (bPlayerInInfo && nPlayer == -1)
 			nPlayer = szi[1] - '1';
 
+		// Dual stick games: the second stick of player 1 is exposed by the driver under a
+		// higher player index ("P1 Up (right)" has "p3 up" as info name). Keep those inputs
+		// on their own port, otherwise they collide with the player 1 first stick.
+		if (bPlayerInInfo && (szi[1] - '1') > nPlayer)
+			nPlayer = szi[1] - '1';
+
 		int offset_szb = 3;
 		if (strlen(szi) > 6 && strncmp("mouse ", szi, 6) == 0)
 			offset_szb = 6;

@@ -80,7 +80,7 @@ void SetDualStickMode() {
 
 // Write the current state of every pad to a file next to the .nro, so the user can report
 // back what the frontend actually exposes when the second stick does not work.
-static void dumpDualStickState(const c2d::Input *input) {
+static void dumpDualStickState(c2d::Input *input) {
     FILE *f = fopen("pfbneo_dualstick_debug.txt", "w");
     if (!f) return;
 
