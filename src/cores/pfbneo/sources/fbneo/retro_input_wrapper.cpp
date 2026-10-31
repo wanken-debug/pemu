@@ -78,6 +78,24 @@ void SetDualStickMode() {
     }
 }
 
+// Write the current state of every pad to a file next to the .nro, so the user can report
+// back what the frontend actually exposes when the second stick does not work.
+static void dumpDualStickState(const c2d::Input *input) {
+    FILE *f = fopen("pfbneo_dualstick_debug.txt", "w");
+    if (!f) return;
+
+    fprintf(f, "dual stick mode: ON\n");
+    fprintf(f, "players: %d\n", PLAYER_MAX);
+    for (int i = 0; i < PLAYER_MAX; i++) {
+        c2d::Input::Player *p = input->getPlayer(i);
+        if (!p) continue;
+        fprintf(f, "player%d enabled=%d lx=%d ly=%d rx=%d ry=%d buttons=0x%08x\n",
+                i, p->enabled ? 1 : 0, p->lx.value, p->ly.value,
+                p->rx.value, p->ry.value, p->buttons);
+    }
+    fclose(f);
+}
+
 int16_t input_cb(unsigned port, unsigned device, unsigned index, unsigned id) {
     if (port < PLAYER_MAX) {
         auto *input = c2d_renderer->getInput();
@@ -90,6 +108,15 @@ int16_t input_cb(unsigned port, unsigned device, unsigned index, unsigned id) {
             c2d::Input::Player *player = input->getPlayer(0);
             if (!player) {
                 return 0;
+            }
+
+            // sample the pad state a few times so the user can send it back if it fails
+            static int nDumpTick = 0;
+            static int nDumpCount = 0;
+            if (nDumpCount < 40 && ++nDumpTick >= 400) {
+                nDumpTick = 0;
+                nDumpCount++;
+                dumpDualStickState(input);
             }
 
             short axisX = player->rx.value;
