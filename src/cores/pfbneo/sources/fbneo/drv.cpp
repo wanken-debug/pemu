@@ -107,6 +107,8 @@ int DrvInit(int nDrvNum, bool bRestore) {
     // init inputs
     InputInit();
     SetControllerInfo();
+    // detect and setup dual stick games (ie: Data East "Chanbara")
+    SetDualStickMode();
 
     printf("DrvInit: DoLibInit()\n");
     if (DoLibInit()) {                // Init the Burn library's driver

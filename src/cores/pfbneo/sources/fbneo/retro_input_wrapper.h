@@ -23,6 +23,8 @@ int16_t input_cb(unsigned port, unsigned device, unsigned index, unsigned id);
 
 void poll_cb();
 
+void SetDualStickMode();
+
 #define HandleMessage(x, ...) printf(__VA_ARGS__)
 #define log_cb HandleMessage
 #define environ_cb(x, y) (void*)NULL
