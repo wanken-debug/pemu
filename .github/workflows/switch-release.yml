@@ -1,4 +1,4 @@
-﻿name: switch-release
+name: switch-release
 
 on:
   workflow_dispatch:
@@ -15,12 +15,15 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Apply libcross2d dual stick patch
+      - name: Apply libcross2d dual stick files
         run: |
-          cd $GITHUB_WORKSPACE/external/libcross2d
-          git apply $GITHUB_WORKSPACE/patches/0001-libcross2d-dualstick.patch
-          echo "libcross2d patched:"
-          grep -n rightStickToButtons source/skeleton/input.cpp include/cross2d/skeleton/input.h
+          cp -v $GITHUB_WORKSPACE/patches/libcross2d/include/cross2d/skeleton/input.h \
+                $GITHUB_WORKSPACE/external/libcross2d/include/cross2d/skeleton/input.h
+          cp -v $GITHUB_WORKSPACE/patches/libcross2d/source/skeleton/input.cpp \
+                $GITHUB_WORKSPACE/external/libcross2d/source/skeleton/input.cpp
+          echo "--- verify ---"
+          grep -n rightStickToButtons $GITHUB_WORKSPACE/external/libcross2d/include/cross2d/skeleton/input.h
+          grep -n rightStickToButtons $GITHUB_WORKSPACE/external/libcross2d/source/skeleton/input.cpp
 
       - name: Configure
         run: |
