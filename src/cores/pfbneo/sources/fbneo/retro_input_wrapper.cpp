@@ -25,13 +25,13 @@ static bool bDualStickMode = false;
 // tangent of 22.5 degrees, same angular zones as the left stick handling in libcross2d
 #define DUALSTICK_SLOPE 0.414214f
 
-static void getDualStickDirections(const c2d::Input::Player *player,
+static void getDualStickDirections(short axisX, short axisY,
                                    bool &up, bool &down, bool &left, bool &right) {
     up = down = left = right = false;
 
     // axis values are signed shorts, y is inverted (sdl/raw axis: down is positive)
-    const float x = (float) player->rx.value;
-    const float y = -(float) player->ry.value;
+    const float x = (float) axisX;
+    const float y = -(float) axisY;
 
     if (x > 0 && y > 0) {                 // upper right quadrant
         if (y > DUALSTICK_SLOPE * x) up = true;
@@ -92,8 +92,23 @@ int16_t input_cb(unsigned port, unsigned device, unsigned index, unsigned id) {
                 return 0;
             }
 
+            short axisX = player->rx.value;
+            short axisY = player->ry.value;
+
+            // On some platforms (ie Nintendo Switch with two separate joy-cons) the frontend
+            // exposes each joy-con as its own controller: player 1 then has no right stick at
+            // all (rx/ry stay at 0) and the right joy-con shows up as player 2, with its stick
+            // reported on lx/ly. Fall back to it so the second stick still works.
+            if (axisX == 0 && axisY == 0) {
+                c2d::Input::Player *second = input->getPlayer(1);
+                if (second && second->enabled) {
+                    axisX = second->lx.value;
+                    axisY = second->ly.value;
+                }
+            }
+
             bool up, down, left, right;
-            getDualStickDirections(player, up, down, left, right);
+            getDualStickDirections(axisX, axisY, up, down, left, right);
 
             if (id == RETRO_DEVICE_ID_JOYPAD_UP) return up ? 1 : 0;
             if (id == RETRO_DEVICE_ID_JOYPAD_DOWN) return down ? 1 : 0;
