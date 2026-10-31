@@ -4,6 +4,10 @@
 
 #include "retro_input.h"
 
+#ifdef __SDL2__
+#include <SDL2/SDL.h>
+#endif
+
 unsigned nGameType = 0;
 bool bIsNeogeoCartGame = false;
 bool bLightgunHideCrosshairEnabled = true;
@@ -31,6 +35,37 @@ static int nDumpCalls = 0;
 static short sPeak[PLAYER_MAX][4] = {};
 static int nPeakSamples = 0;
 static int nPort2Calls = 0;
+// peak absolute values read straight from sdl, bypassing the frontend input layer
+static short sSdlPeak[2][2] = {};
+
+// Read an axis pair directly from the sdl game controller behind the player, so a failure of
+// the frontend input layer cannot hide the pad data.
+#if defined(__SDL2__)
+#define DUALSTICK_AXIS_DEADZONE 8000
+
+static bool readSdlAxisPair(const c2d::Input::Player *p, int axX, int axY,
+                            short &outX, short &outY) {
+    if (!p || !p->data) return false;
+
+    auto *pad = (SDL_GameController *) p->data;
+    if (!SDL_GameControllerGetAttached(pad)) return false;
+
+    int x = SDL_GameControllerGetAxis(pad, (SDL_GameControllerAxis) axX);
+    int y = SDL_GameControllerGetAxis(pad, (SDL_GameControllerAxis) axY);
+
+    const short px = (short) (x < 0 ? -x : x);
+    const short py = (short) (y < 0 ? -y : y);
+    if (px > sSdlPeak[0][0]) sSdlPeak[0][0] = px;
+    if (py > sSdlPeak[0][1]) sSdlPeak[0][1] = py;
+
+    if (x > -DUALSTICK_AXIS_DEADZONE && x < DUALSTICK_AXIS_DEADZONE) x = 0;
+    if (y > -DUALSTICK_AXIS_DEADZONE && y < DUALSTICK_AXIS_DEADZONE) y = 0;
+
+    outX = (short) x;
+    outY = (short) y;
+    return true;
+}
+#endif
 
 static void getDualStickDirections(short axisX, short axisY,
                                    bool &up, bool &down, bool &left, bool &right) {
@@ -111,6 +146,7 @@ static void dumpDualStickState(c2d::Input *input) {
     fprintf(f, "dual stick mode: %s\n", bDualStickMode ? "ON" : "OFF");
     fprintf(f, "dump calls: %d (0 = port 2 path never used)\n", ++nDumpCalls);
     fprintf(f, "peak samples: %d, port2 calls: %d\n", nPeakSamples, nPort2Calls);
+    fprintf(f, "sdl peak player0 right stick (x,y): %d,%d\n", sSdlPeak[0][0], sSdlPeak[0][1]);
     fprintf(f, "players: %d (player count from the frontend)\n", PLAYER_MAX);
     for (int i = 0; i < PLAYER_MAX; i++) {
         c2d::Input::Player *p = input->getPlayer(i);
@@ -162,6 +198,14 @@ int16_t input_cb(unsigned port, unsigned device, unsigned index, unsigned id) {
             short axisX = player->rx.value;
             short axisY = player->ry.value;
 
+#if defined(__SDL2__)
+            // frontend layer reported nothing: ask sdl directly for the right stick
+            if (axisX == 0 && axisY == 0) {
+                readSdlAxisPair(player, SDL_CONTROLLER_AXIS_RIGHTX, SDL_CONTROLLER_AXIS_RIGHTY,
+                                axisX, axisY);
+            }
+#endif
+
             // On some platforms (ie Nintendo Switch with two separate joy-cons) the frontend
             // exposes each joy-con as its own controller: player 1 then has no right stick at
             // all (rx/ry stay at 0) and the right joy-con shows up as player 2, with its stick
@@ -171,6 +215,12 @@ int16_t input_cb(unsigned port, unsigned device, unsigned index, unsigned id) {
                 if (second && second->enabled) {
                     axisX = second->lx.value;
                     axisY = second->ly.value;
+#if defined(__SDL2__)
+                    if (axisX == 0 && axisY == 0) {
+                        readSdlAxisPair(second, SDL_CONTROLLER_AXIS_LEFTX,
+                                        SDL_CONTROLLER_AXIS_LEFTY, axisX, axisY);
+                    }
+#endif
                 }
             }
 
